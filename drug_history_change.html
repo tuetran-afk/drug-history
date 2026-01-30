@@ -3,194 +3,303 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tra cứu Lịch sử Thuốc (Supabase Live)</title>
+    <title>Tra cứu Lịch sử Thuốc (Gom nhóm theo ID)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #1a73e8; --bg: #f0f2f5; }
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
-        .container { max-width: 1700px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; height: 90vh; }
-        .header { padding: 15px 20px; border-bottom: 1px solid #eee; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
+        
+        /* Layout */
+        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; height: 90vh; }
+        .header { padding: 15px 20px; border-bottom: 1px solid #eee; flex-shrink: 0; }
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .header h1 { margin: 0; color: var(--primary); font-size: 20px; }
+        
+        /* Controls */
         .controls { display: flex; gap: 10px; align-items: center; }
         .search-box { position: relative; width: 400px; }
-        .search-box input { width: 100%; padding: 8px 35px 8px 10px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        .search-box input { width: 100%; padding: 10px 35px 10px 10px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
         .search-box i { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; }
-        .btn-filter { padding: 6px 12px; border: 1px solid #e0e0e0; background: white; border-radius: 4px; cursor: pointer; }
-        .btn-filter.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        /* Table */
         .table-wrapper { flex: 1; overflow: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 13px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #eee; }
-        td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-        tr.parent-row:hover { background: #f8faff; cursor: pointer; }
-        tr.parent-row.expanded { background: #e8f0fe; }
-        .toggle-icon { transition: transform 0.2s; color: #ccc; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th { background: #f8f9fa; padding: 12px 15px; text-align: left; font-size: 13px; font-weight: 600; color: #555; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #eee; }
+        td { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; }
+        
+        /* Parent Row Styling */
+        tr.parent-row { transition: all 0.2s; }
+        tr.parent-row:hover { background-color: #f1f3f4; cursor: pointer; }
+        tr.parent-row.expanded { background-color: #e8f0fe; border-left: 4px solid var(--primary); }
+        .toggle-icon { transition: transform 0.2s; color: #aaa; width: 20px; text-align: center; }
         tr.parent-row.expanded .toggle-icon { transform: rotate(90deg); color: var(--primary); }
-        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        
+        /* Badges */
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
         .badge-info { background: #e8f0fe; color: #1967d2; }
-        tr.child-row { display: none; background: #fafafa; }
+        .badge-drug-id { background: #e2e8f0; color: #475569; font-family: monospace; }
+
+        /* Child Row (Detail) */
+        tr.child-row { display: none; }
         tr.child-row.show { display: table-row; }
-        .detail-container { padding: 15px; margin: 10px; background: white; border: 1px solid #eee; border-radius: 4px; }
-        .detail-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .detail-table th { background: #6c757d; color: white; position: static; }
-        .detail-table td { border: 1px solid #eee; padding: 8px; }
-        .col-old { background: #fff5f5; color: #c53030; }
-        .col-new { background: #f0fff4; color: #22543d; }
-        .footer { padding: 10px 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .page-btn { padding: 5px 15px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; }
-        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 99; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .detail-wrapper { background: #fafafa; padding: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        
+        /* Detail Table */
+        .history-table { width: 100%; background: white; border: 1px solid #e0e0e0; font-size: 13px; }
+        .history-table th { background: #5f6368; color: white; padding: 8px; font-weight: normal; border: 1px solid #5f6368; }
+        .history-table td { border: 1px solid #e0e0e0; padding: 8px; vertical-align: top; }
+        
+        .col-old { background-color: #fff5f5; color: #c53030; }
+        .col-new { background-color: #f0fff4; color: #22543d; }
+
+        /* Footer */
+        .footer { padding: 10px 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #666; }
+        .btn-page { padding: 5px 15px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; }
+        .btn-page:hover:not(:disabled) { background: #f1f1f1; border-color: #ccc; }
+        .btn-page:disabled { opacity: 0.5; cursor: default; }
+        
+        /* Loading */
+        #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div id="loading"><div class="spinner"></div><p>Đang tải dữ liệu...</p></div>
+    <div id="loading"><div class="spinner"></div><p style="margin-top: 10px; color: #666;">Đang tải dữ liệu...</p></div>
+
     <div class="container">
         <div class="header">
             <div class="header-top">
-                <h1><i class="fas fa-history"></i> Lịch sử Thay đổi Thuốc</h1>
-                <span class="badge badge-info" id="totalCount">0 kết quả</span>
+                <h1><i class="fas fa-capsules"></i> Danh mục Thuốc (Gom nhóm theo ID)</h1>
+                <span class="badge badge-info" id="statusInfo" style="font-size: 13px;">Đang tải...</span>
             </div>
             <div class="controls">
                 <div class="search-box">
-                    <input type="text" id="search" placeholder="Tìm tên thuốc hoặc SĐK...">
+                    <input type="text" id="search" placeholder="Nhập tên thuốc, SĐK hoặc Mã ID...">
                     <i class="fas fa-search"></i>
                 </div>
-                <button class="btn-filter active" id="btnAll" onclick="app.setFilter('all')">Tất cả</button>
-                <button class="btn-filter" id="btnChanged" onclick="app.setFilter('changed')">Có nội dung thay đổi</button>
+                <div style="font-size: 13px; color: #666; font-style: italic; margin-left: 15px;">
+                    * Hiển thị dạng gom nhóm (1 dòng = 1 thuốc)
+                </div>
             </div>
         </div>
+
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
                         <th style="width: 40px"></th>
+                        <th style="width: 100px">Mã ID</th>
                         <th>Tên thuốc</th>
-                        <th style="width: 150px">Số Đăng Ký</th>
-                        <th style="width: 120px">Trạng thái</th>
-                        <th style="width: 140px">Ngày sửa đổi</th>
-                        <th style="width: 140px">Ngày quét</th>
+                        <th style="width: 180px">Số Đăng Ký</th>
+                        <th style="width: 150px">Tổng thay đổi</th>
+                        <th style="width: 150px">Cập nhật cuối</th>
                     </tr>
                 </thead>
                 <tbody id="tbody"></tbody>
             </table>
         </div>
+
         <div class="footer">
             <div id="pageInfo">Trang 1</div>
-            <div class="pagination">
-                <button class="page-btn" id="prevPage" onclick="app.changePage(-1)">Trước</button>
-                <button class="page-btn" id="nextPage" onclick="app.changePage(1)">Sau</button>
+            <div>
+                <button class="btn-page" id="prevBtn" onclick="app.changePage(-1)">Trước</button>
+                <button class="btn-page" id="nextBtn" onclick="app.changePage(1)">Sau</button>
             </div>
         </div>
     </div>
 
     <script>
+        // CẤU HÌNH SUPABASE
         const SB_URL = 'https://fdvlpnfxbcpfsuapujfs.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkdmxwbmZ4YmNwZnN1YXB1amZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzc3MDcsImV4cCI6MjA4NDk1MzcwN30.rbfEdaPUdhsoSR5UFeRF5RjmK6D86PurciROW_zNPFY';
         const _supabase = supabase.createClient(SB_URL, SB_KEY);
 
         const app = {
-            pageSize: 50, currentPage: 1, totalRecords: 0, currentSearch: '', filterType: 'all', data: [],
+            data: [], 
+            pageSize: 200, // Lấy nhiều hơn chút để gom nhóm cho đẹp
+            currentPage: 1, 
+            hasMore: true,
+            currentSearch: '',
+
             init: function() {
-                this.fetch();
+                this.fetchData();
                 document.getElementById('search').addEventListener('input', this.debounce((e) => {
                     this.currentSearch = e.target.value.trim();
                     this.currentPage = 1;
-                    this.fetch();
+                    this.fetchData();
                 }, 500));
             },
-            fetch: async function() {
-                document.getElementById('loading').style.display = 'flex';
+
+            fetchData: async function() {
+                const loading = document.getElementById('loading');
+                loading.style.display = 'flex';
+                
                 try {
                     const from = (this.currentPage - 1) * this.pageSize;
                     const to = from + this.pageSize - 1;
-                    let query = _supabase.from('history_drug_change').select('*', { count: 'exact' });
-                    
+
+                    let query = _supabase
+                        .from('history_drug_change')
+                        .select('*', { count: 'exact' });
+
                     if (this.currentSearch) {
-                        query = query.or(`ten_thuoc.ilike.%${this.currentSearch}%,so_dang_ky.ilike.%${this.currentSearch}%`);
-                    }
-                    if (this.filterType === 'changed') {
-                        query = query.not('noi_dung_thay_doi', 'eq', '');
+                        // Tìm theo Tên, SĐK hoặc Drug ID
+                        query = query.or(`ten_thuoc.ilike.%${this.currentSearch}%,so_dang_ky.ilike.%${this.currentSearch}%,drug_id.ilike.%${this.currentSearch}%`);
                     }
 
-                    const { data, error, count } = await query.order('id', { ascending: false }).range(from, to);
+                    // QUAN TRỌNG: Sắp xếp theo drug_id để các dòng của cùng 1 thuốc nằm cạnh nhau
+                    // Điều này giúp việc gom nhóm Javascript chính xác hơn khi phân trang
+                    const { data, error, count } = await query
+                        .order('drug_id', { ascending: true }) 
+                        .order('ngay_sua_doi', { ascending: false }) // Trong cùng 1 thuốc, ngày mới nhất lên đầu
+                        .range(from, to);
+
                     if (error) throw error;
 
-                    this.totalRecords = count || 0;
-                    this.data = this.groupData(data);
-                    this.render();
-                } catch (e) { alert('Lỗi: ' + e.message); }
-                finally { document.getElementById('loading').style.display = 'none'; }
+                    const groupedData = this.groupDataByID(data);
+                    
+                    this.render(groupedData);
+                    
+                    // Cập nhật trạng thái Footer
+                    document.getElementById('statusInfo').innerText = `Tìm thấy ${count} bản ghi lịch sử`;
+                    document.getElementById('pageInfo').innerText = `Trang ${this.currentPage} (Đang hiển thị ${groupedData.length} đầu thuốc)`;
+                    document.getElementById('prevBtn').disabled = this.currentPage === 1;
+                    document.getElementById('nextBtn').disabled = (to >= count);
+
+                } catch (e) {
+                    console.error(e);
+                    alert('Lỗi tải dữ liệu: ' + e.message);
+                } finally {
+                    loading.style.display = 'none';
+                }
             },
-            groupData: function(flatData) {
+
+            // --- HÀM QUAN TRỌNG: GOM NHÓM THEO ID THUỐC ---
+            groupDataByID: function(flatData) {
                 const groups = {};
+                
                 flatData.forEach(item => {
-                    const key = `${item.so_dang_ky}_${item.ngay_sua_doi}`;
+                    // Dùng drug_id làm khóa duy nhất
+                    // Nếu không có drug_id thì dùng tạm so_dang_ky
+                    const key = item.drug_id || item.so_dang_ky;
+                    
                     if (!groups[key]) {
                         groups[key] = {
-                            display_id: item.id,
+                            drug_id: item.drug_id,
                             ten_thuoc: item.ten_thuoc,
                             so_dang_ky: item.so_dang_ky,
-                            last_mod: item.ngay_sua_doi,
-                            last_scan: item.last_updated,
-                            chi_tiet: []
+                            last_updated: item.last_updated, // Lấy ngày cập nhật hệ thống của dòng đầu tiên
+                            history: [] // Mảng chứa các lần thay đổi
                         };
                     }
-                    groups[key].chi_tiet.push(item);
+                    
+                    // Đẩy chi tiết vào mảng history
+                    groups[key].history.push({
+                        ngay: item.ngay_sua_doi,
+                        ma_thay_doi: item.ma_thay_doi,
+                        noi_dung: item.noi_dung_thay_doi,
+                        chi_tiet: item.chi_tiet,
+                        cu: item.thong_tin_cu,
+                        moi: item.thong_tin_moi,
+                        ly_do: item.ly_do
+                    });
                 });
+
                 return Object.values(groups);
             },
-            render: function() {
-                const tbody = document.getElementById('tbody');
-                document.getElementById('totalCount').innerText = `${this.totalRecords} kết quả`;
-                document.getElementById('pageInfo').innerText = `Trang ${this.currentPage} / ${Math.ceil(this.totalRecords/this.pageSize) || 1}`;
-                document.getElementById('prevPage').disabled = this.currentPage === 1;
-                document.getElementById('nextPage').disabled = this.currentPage >= Math.ceil(this.totalRecords/this.pageSize);
 
-                tbody.innerHTML = this.data.map(item => `
-                    <tr class="parent-row" onclick="app.toggle('${item.display_id}')">
-                        <td><div class="toggle-icon" id="icon-${item.display_id}"><i class="fas fa-chevron-right"></i></div></td>
-                        <td style="color:var(--primary); font-weight:500">${item.ten_thuoc || '-'}</td>
+            render: function(listData) {
+                const tbody = document.getElementById('tbody');
+                if (listData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:#999;">Không tìm thấy dữ liệu</td></tr>';
+                    return;
+                }
+
+                const html = listData.map((item, index) => {
+                    const rowId = `row-${index}`;
+                    const countBadge = item.history.length > 0 
+                        ? `<span class="badge badge-info">${item.history.length} lần sửa đổi</span>` 
+                        : `<span style="color:#999">-</span>`;
+
+                    return `
+                    <tr class="parent-row" onclick="app.toggleDetail('${rowId}')">
+                        <td><div class="toggle-icon" id="icon-${rowId}"><i class="fas fa-chevron-right"></i></div></td>
+                        <td><span class="badge badge-drug-id">${item.drug_id || 'N/A'}</span></td>
+                        <td style="font-weight: 500; color: var(--primary);">${item.ten_thuoc || '(Chưa cập nhật tên)'}</td>
                         <td><b>${item.so_dang_ky || '-'}</b></td>
-                        <td><span class="badge badge-info">${item.chi_tiet.length} nội dung</span></td>
-                        <td>${item.last_mod || '-'}</td>
-                        <td style="font-size:12px; color:#666">${item.last_scan ? new Date(item.last_scan).toLocaleDateString('vi-VN') : '-'}</td>
+                        <td>${countBadge}</td>
+                        <td style="color:#666; font-size:12px;">${this.formatDate(item.last_updated)}</td>
                     </tr>
-                    <tr class="child-row" id="child-${item.display_id}">
-                        <td colspan="6"><div class="detail-container">
-                            <table class="detail-table">
-                                <thead><tr><th>Nội dung</th><th class="col-old">Thông tin cũ</th><th class="col-new">Thông tin mới</th><th>Lý do</th></tr></thead>
-                                <tbody>${item.chi_tiet.map(d => `
-                                    <tr>
-                                        <td><b>${d.noi_dung_thay_doi}</b><br><small>${d.chi_tiet || ''}</small></td>
-                                        <td class="col-old">${d.thong_tin_cu || '-'}</td>
-                                        <td class="col-new">${d.thong_tin_moi || '-'}</td>
-                                        <td>${d.ly_do || '-'}</td>
-                                    </tr>
-                                `).join('')}</tbody>
-                            </table>
-                        </div></td>
-                    </tr>
-                `).join('');
+                    
+                    <tr class="child-row" id="child-${rowId}">
+                        <td colspan="6" style="padding: 0;">
+                            <div class="detail-wrapper">
+                                <h4 style="margin: 0 0 10px 0; color: #555;">Lịch sử thay đổi chi tiết:</h4>
+                                <table class="history-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 100px;">Ngày sửa đổi</th>
+                                            <th style="width: 20%;">Nội dung thay đổi</th>
+                                            <th style="width: 25%;">Thông tin cũ</th>
+                                            <th style="width: 25%;">Thông tin mới</th>
+                                            <th>Lý do / Ghi chú</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${item.history.map(h => `
+                                            <tr>
+                                                <td style="font-weight:600; color:#333;">${h.ngay || '-'}</td>
+                                                <td><b>${h.noi_dung}</b><br><span style="color:#666; font-size:11px;">${h.chi_tiet || ''}</span></td>
+                                                <td class="col-old">${h.cu || '-'}</td>
+                                                <td class="col-new">${h.moi || '-'}</td>
+                                                <td>${h.ly_do || ''}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+                tbody.innerHTML = html;
             },
-            toggle: function(id) {
-                const row = document.getElementById(`child-${id}`);
-                const icon = document.getElementById(`icon-${id}`);
-                const isShow = row.classList.toggle('show');
-                icon.parentElement.parentElement.classList.toggle('expanded', isShow);
+
+            toggleDetail: function(id) {
+                const childRow = document.getElementById(`child-${id}`);
+                const icon = document.getElementById(`icon-${id}`).parentElement.parentElement;
+                
+                if (childRow.classList.contains('show')) {
+                    childRow.classList.remove('show');
+                    icon.classList.remove('expanded');
+                } else {
+                    // Đóng các dòng khác đang mở (nếu muốn - optional)
+                    // document.querySelectorAll('.child-row.show').forEach(el => el.classList.remove('show'));
+                    // document.querySelectorAll('.parent-row.expanded').forEach(el => el.classList.remove('expanded'));
+
+                    childRow.classList.add('show');
+                    icon.classList.add('expanded');
+                }
             },
-            changePage: function(step) { this.currentPage += step; this.fetch(); },
-            setFilter: function(type) {
-                this.filterType = type; this.currentPage = 1;
-                document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
-                event.target.classList.add('active');
-                this.fetch();
+
+            changePage: function(step) {
+                this.currentPage += step;
+                this.fetchData();
             },
-            debounce: function(f, w) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), w); }; }
+
+            debounce: function(func, wait) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); }; },
+            
+            formatDate: function(isoStr) {
+                if (!isoStr) return '';
+                try {
+                    return new Date(isoStr).toLocaleString('vi-VN');
+                } catch { return isoStr; }
+            }
         };
+
         window.onload = () => app.init();
     </script>
 </body>
