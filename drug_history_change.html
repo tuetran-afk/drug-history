@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tra cứu Lịch sử Thuốc (Supabase Original)</title>
+    <title>Tra cứu Lịch sử Thuốc (Supabase Fixed)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
-        /* --- CSS GỐC TỪ FILE PYTHON CỦA ÔNG --- */
+        /* --- CSS GỐC TỪ FILE PYTHON --- */
         :root { --primary: #1a73e8; --bg: #f0f2f5; }
         * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
@@ -90,45 +90,40 @@
     </div>
 
     <script>
-        // --- CẤU HÌNH SUPABASE ---
-        // Ông thay 2 dòng này nhé
-        const SUPABASE_URL = 'https://fdvlpnfxbcpfsuapujfs.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkdmxwbmZ4YmNwZnN1YXB1amZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzc3MDcsImV4cCI6MjA4NDk1MzcwN30.rbfEdaPUdhsoSR5UFeRF5RjmK6D86PurciROW_zNPFY';
+        // --- SỬA LỖI TẠI ĐÂY ---
+        const SB_URL = 'https://fdvlpnfxbcpfsuapujfs.supabase.co'; 
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkdmxwbmZ4YmNwZnN1YXB1amZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzc3MDcsImV4cCI6MjA4NDk1MzcwN30.rbfEdaPUdhsoSR5UFeRF5RjmK6D86PurciROW_zNPFY';
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Đổi tên biến từ 'supabase' thành '_supabase' để không bị trùng
+        const _supabase = supabase.createClient(SB_URL, SB_KEY);
 
         const app = {
             data: [], filteredData: [], pageSize: 50, currentPage: 1, filterType: 'all', searchTerm: '',
             
             init: async function() {
                 try {
-                    // 1. Fetch dữ liệu từ Supabase
-                    let { data: rawData, error } = await supabase
+                    // Dùng biến _supabase vừa đổi tên để gọi
+                    let { data: rawData, error } = await _supabase
                         .from('history_drug_change')
                         .select('*')
                         .order('ngay_sua_doi', { ascending: false });
 
                     if (error) throw error;
 
-                    // 2. Gom nhóm dữ liệu (Vì Supabase trả về từng dòng lẻ, còn giao diện Python là gom theo thuốc)
                     this.data = this.groupDataBySDK(rawData);
-                    
                     document.getElementById('loading').style.display = 'none';
-                    
-                    // 3. Render ban đầu
                     this.applyFilter();
 
-                    // 4. Sự kiện tìm kiếm
                     document.getElementById('search').addEventListener('input', this.debounce((e) => {
                         this.searchTerm = e.target.value.toLowerCase(); this.currentPage = 1; this.applyFilter();
                     }, 300));
 
                 } catch (e) {
                     alert('Lỗi: ' + e.message);
+                    document.getElementById('loading').innerHTML = `<p style="color:red">Lỗi kết nối: ${e.message}</p>`;
                 }
             },
 
-            // Hàm gom nhóm dữ liệu để tạo Master-Detail giống Python
             groupDataBySDK: function(flatData) {
                 const groups = {};
                 flatData.forEach((item, index) => {
@@ -136,26 +131,22 @@
                     
                     if (!groups[key]) {
                         groups[key] = {
-                            id: index, // ID ảo để làm toggle
+                            id: index,
                             ten_thuoc: item.ten_thuoc,
                             so_dang_ky: item.so_dang_ky,
                             chi_tiet: [],
                             last_updated: item.ngay_sua_doi,
-                            last_scan: item.created_at || item.ngay_sua_doi // Giả lập ngày quét
+                            last_scan: item.created_at || item.ngay_sua_doi
                         };
                     }
-                    // Thêm vào danh sách chi tiết
                     groups[key].chi_tiet.push({
                         ngay_sua_doi: item.ngay_sua_doi,
                         noi_dung_thay_doi: item.noi_dung_thay_doi,
-                        // Nếu cột database của ông không có 'thong_tin_cu', code sẽ để trống
                         thong_tin_cu: item.thong_tin_cu || '', 
                         thong_tin_moi: item.thong_tin_moi || '',
-                        ly_do: item.ly_do || '',
-                        chi_tiet: item.chi_tiet || '' // Trường hợp có cột chi tiết riêng
+                        ly_do: item.ly_do || ''
                     });
 
-                    // Cập nhật ngày mới nhất của thuốc đó
                     if (item.ngay_sua_doi > groups[key].last_updated) {
                         groups[key].last_updated = item.ngay_sua_doi;
                     }
@@ -200,7 +191,6 @@
                     const countChange = item.chi_tiet.length;
                     const statusBadge = countChange > 0 ? `<span class="badge badge-new">${countChange} thay đổi</span>` : `<span class="badge badge-gray">Không đổi</span>`;
                     
-                    // Render dòng cha (Master)
                     html += `
                     <tr class="parent-row" onclick="app.toggleDetail(${item.id})">
                         <td><div class="toggle-icon" id="icon-${item.id}"><i class="fas fa-chevron-right"></i></div></td>
@@ -220,7 +210,6 @@
 
             renderDetail: function(details) {
                 if (!details || details.length === 0) return '<div style="color:#999; font-style:italic">Không có chi tiết.</div>';
-                // Render bảng con (Detail Table) - Giống hệt style cũ
                 let html = `<table class="detail-table"><thead><tr><th style="width:90px">Ngày duyệt</th><th style="width:20%">Nội dung</th><th class="col-old">Thông tin cũ</th><th class="col-new">Thông tin mới</th><th style="width:15%">Lý do</th></tr></thead><tbody>`;
                 details.forEach(d => { 
                     html += `<tr>
@@ -253,7 +242,7 @@
             
             toggleDetail: function(id) {
                 const row = document.getElementById(`child-${id}`); 
-                const icon = document.getElementById(`icon-${id}`).parentElement.parentElement; // Lấy tr parent
+                const icon = document.getElementById(`icon-${id}`).parentElement.parentElement;
                 
                 if (row.classList.contains('show')) { 
                     row.classList.remove('show'); 
@@ -266,7 +255,6 @@
 
             formatDateVN: function(isoDate) {
                 if (!isoDate) return '';
-                // Nếu data là text dạng dd/mm/yyyy thì trả về luôn
                 if(isoDate.includes('/')) return isoDate; 
                 try {
                     const d = new Date(isoDate);
