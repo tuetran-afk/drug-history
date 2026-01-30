@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tra cứu Lịch sử Thuốc (JSON Version)</title>
+    <title>Lịch sử Thay đổi thông tin Thuốc</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -84,22 +84,22 @@
 <body>
     <div id="loading">
         <div class="spinner"></div>
-        <p style="margin-top: 15px; color: #666; font-weight: 500;">Đang tải dữ liệu từ Supabase...</p>
+        <p style="margin-top: 15px; color: #666; font-weight: 500;">Đang tải dữ liệu </p>
     </div>
 
     <div class="container">
         <div class="header">
             <div class="header-top">
-                <h1><i class="fas fa-capsules"></i> Tra cứu Lịch sử Thuốc</h1>
+                <h1><i class="fas fa-capsules"></i> Lịch sử Thay đổi thông tin Thuốc</h1>
                 <span class="badge badge-info" id="statusInfo" style="padding: 6px 12px; font-size: 13px;">...</span>
             </div>
             <div class="controls">
                 <div class="search-box">
-                    <input type="text" id="search" placeholder="🔍 Tìm tên thuốc, SĐK hoặc ID (Gõ và đợi 1s)..." autocomplete="off">
+                    <input type="text" id="search" placeholder=" 🔍 Tìm tên thuốc, SĐK hoặc ID (Gõ và đợi 1s)..." autocomplete="off">
                     <i class="fas fa-search"></i>
                 </div>
                 <div style="font-size: 13px; color: #888; font-style: italic;">
-                    * Sắp xếp: Mới nhất lên đầu
+                    * Sắp xếp theo ngày biến động gần nhất
                 </div>
             </div>
         </div>
@@ -113,7 +113,7 @@
                         <th>Tên thuốc</th>
                         <th style="width: 180px">Số Đăng Ký</th>
                         <th style="width: 140px">Tổng thay đổi</th>
-                        <th style="width: 140px">Biến động cuối</th>
+                        <th style="width: 140px">Ngày biến động cuối</th>
                     </tr>
                 </thead>
                 <tbody id="tbody"></tbody>
