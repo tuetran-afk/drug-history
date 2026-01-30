@@ -3,110 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tra cứu Lịch sử Thuốc (Server-side)</title>
+    <title>Tra cứu Lịch sử Thuốc (Supabase Live)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
         :root { --primary: #1a73e8; --bg: #f0f2f5; }
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
-        
-        .container { 
-            max-width: 1700px; margin: 0 auto; background: white; 
-            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
-            display: flex; flex-direction: column; height: 90vh; 
-        }
-
-        /* HEADER */
-        .header { padding: 15px 20px; border-bottom: 1px solid #eee; background: #fff; flex-shrink: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1700px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; height: 90vh; }
+        .header { padding: 15px 20px; border-bottom: 1px solid #eee; }
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .header h1 { margin: 0; color: var(--primary); font-size: 20px; }
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        
-        /* SEARCH BOX */
-        .search-box { position: relative; width: 350px; }
+        .controls { display: flex; gap: 10px; align-items: center; }
+        .search-box { position: relative; width: 400px; }
         .search-box input { width: 100%; padding: 8px 35px 8px 10px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
-        .search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,115,232,0.2); }
         .search-box i { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; }
-        
-        /* BUTTONS */
-        .btn-filter { padding: 6px 12px; border: 1px solid #e0e0e0; background: white; border-radius: 4px; cursor: pointer; font-size: 13px; color: #555; transition: all 0.2s; }
-        .btn-filter:hover { background: #f8f9fa; }
+        .btn-filter { padding: 6px 12px; border: 1px solid #e0e0e0; background: white; border-radius: 4px; cursor: pointer; }
         .btn-filter.active { background: var(--primary); color: white; border-color: var(--primary); }
-
-        /* TABLE AREA */
-        .table-wrapper { flex: 1; overflow: auto; position: relative; }
-        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
-        
-        th { 
-            background: #f8f9fa; padding: 10px 15px; text-align: left; 
-            font-weight: 600; font-size: 13px; color: #555; 
-            position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
-        }
-        td { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; }
-        
-        /* PARENT ROW */
-        tr.parent-row:hover { background-color: #f8faff; cursor: pointer; }
-        tr.parent-row.expanded { background-color: #e8f0fe; border-left: 3px solid var(--primary); }
-        
-        .toggle-icon { transition: transform 0.2s; color: #ccc; width: 20px; text-align: center; }
+        .table-wrapper { flex: 1; overflow: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 13px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        tr.parent-row:hover { background: #f8faff; cursor: pointer; }
+        tr.parent-row.expanded { background: #e8f0fe; }
+        .toggle-icon { transition: transform 0.2s; color: #ccc; }
         tr.parent-row.expanded .toggle-icon { transform: rotate(90deg); color: var(--primary); }
-
-        /* BADGES */
-        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
-        .badge-new { background: #e6f4ea; color: #1e8e3e; }
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
         .badge-info { background: #e8f0fe; color: #1967d2; }
-        .badge-gray { background: #f1f3f4; color: #5f6368; }
-
-        /* CHILD ROW (DETAIL) */
         tr.child-row { display: none; background: #fafafa; }
         tr.child-row.show { display: table-row; }
-        
-        .detail-container { padding: 15px; border-bottom: 2px solid #eee; background: #fff; margin: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .detail-table { width: 100%; border: 1px solid #eee; font-size: 13px; }
-        .detail-table th { background: #6c757d; color: white; padding: 8px; font-size: 12px; position: static; box-shadow: none; }
-        .detail-table td { padding: 8px; border: 1px solid #eee; vertical-align: top; }
-        
-        .col-old { background: #fff5f5; color: #c53030; width: 20%; }
-        .col-new { background: #f0fff4; color: #22543d; width: 20%; }
-
-        /* FOOTER */
-        .footer { padding: 10px 20px; border-top: 1px solid #eee; background: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-        .pagination { display: flex; gap: 5px; align-items: center; }
-        .page-btn { padding: 5px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; min-width: 32px; display: flex; align-items: center; justify-content: center; }
-        .page-btn:hover:not(:disabled) { background: #f1f1f1; }
-        .page-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-        .page-btn:disabled { opacity: 0.5; cursor: default; background: #f9f9f9; }
-
-        /* LOADING */
-        #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .detail-container { padding: 15px; margin: 10px; background: white; border: 1px solid #eee; border-radius: 4px; }
+        .detail-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .detail-table th { background: #6c757d; color: white; position: static; }
+        .detail-table td { border: 1px solid #eee; padding: 8px; }
+        .col-old { background: #fff5f5; color: #c53030; }
+        .col-new { background: #f0fff4; color: #22543d; }
+        .footer { padding: 10px 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .page-btn { padding: 5px 15px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; }
+        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 99; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        .date-mod { color: #1a73e8; font-weight: 600; }
-        .date-scan { color: #666; font-size: 12px; }
     </style>
 </head>
 <body>
-    <div id="loading"><div class="spinner"></div><p style="margin-top:15px; color:#666">Đang kết nối đến Database...</p></div>
-
+    <div id="loading"><div class="spinner"></div><p>Đang tải dữ liệu...</p></div>
     <div class="container">
         <div class="header">
             <div class="header-top">
                 <h1><i class="fas fa-history"></i> Lịch sử Thay đổi Thuốc</h1>
-                <div><span class="badge badge-info" id="totalCount" style="font-size:13px; padding: 5px 10px;">Đang tải...</span></div>
+                <span class="badge badge-info" id="totalCount">0 kết quả</span>
             </div>
             <div class="controls">
                 <div class="search-box">
-                    <input type="text" id="search" placeholder="Nhập tên thuốc hoặc Số Đăng Ký..." autocomplete="off">
+                    <input type="text" id="search" placeholder="Tìm tên thuốc hoặc SĐK...">
                     <i class="fas fa-search"></i>
                 </div>
-                <button class="btn-filter active" onclick="app.setFilter('all')">Tất cả</button>
-                <button class="btn-filter" onclick="app.setFilter('changed')">Có nội dung thay đổi</button>
+                <button class="btn-filter active" id="btnAll" onclick="app.setFilter('all')">Tất cả</button>
+                <button class="btn-filter" id="btnChanged" onclick="app.setFilter('changed')">Có nội dung thay đổi</button>
             </div>
         </div>
-
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -115,259 +71,127 @@
                         <th>Tên thuốc</th>
                         <th style="width: 150px">Số Đăng Ký</th>
                         <th style="width: 120px">Trạng thái</th>
-                        <th style="width: 140px">Ngày sửa đổi <i class="fas fa-sort-amount-down"></i></th>
-                        <th style="width: 140px">Ngày cập nhật HT</th>
+                        <th style="width: 140px">Ngày sửa đổi</th>
+                        <th style="width: 140px">Ngày quét</th>
                     </tr>
                 </thead>
                 <tbody id="tbody"></tbody>
             </table>
         </div>
-
         <div class="footer">
-            <div style="font-size: 13px; color: #666;" id="pageInfo">Trang 1</div>
-            <div class="pagination" id="pagination"></div>
+            <div id="pageInfo">Trang 1</div>
+            <div class="pagination">
+                <button class="page-btn" id="prevPage" onclick="app.changePage(-1)">Trước</button>
+                <button class="page-btn" id="nextPage" onclick="app.changePage(1)">Sau</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- CẤU HÌNH SUPABASE ---
         const SB_URL = 'https://fdvlpnfxbcpfsuapujfs.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkdmxwbmZ4YmNwZnN1YXB1amZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzc3MDcsImV4cCI6MjA4NDk1MzcwN30.rbfEdaPUdhsoSR5UFeRF5RjmK6D86PurciROW_zNPFY';
-        
         const _supabase = supabase.createClient(SB_URL, SB_KEY);
 
         const app = {
-            data: [], 
-            pageSize: 50, // Số dòng lấy mỗi lần từ Server
-            currentPage: 1, 
-            totalRecords: 0, // Tổng số bản ghi tìm thấy trên server
-            currentSearch: '', // Từ khóa đang tìm
-            filterType: 'all', // 'all' hoặc 'changed'
-
+            pageSize: 50, currentPage: 1, totalRecords: 0, currentSearch: '', filterType: 'all', data: [],
             init: function() {
-                // Lần đầu vào load dữ liệu trang 1 luôn
-                this.fetchDataFromSupabase(1, '');
-
-                // Xử lý sự kiện tìm kiếm (Debounce 500ms)
+                this.fetch();
                 document.getElementById('search').addEventListener('input', this.debounce((e) => {
-                    const keyword = e.target.value.trim();
-                    this.currentSearch = keyword;
-                    this.currentPage = 1; // Reset về trang 1
-                    this.fetchDataFromSupabase(1, keyword);
+                    this.currentSearch = e.target.value.trim();
+                    this.currentPage = 1;
+                    this.fetch();
                 }, 500));
             },
-
-            // --- HÀM QUAN TRỌNG: GỌI API SUPABASE ---
-            fetchDataFromSupabase: async function(page, keyword) {
-                const loadingDiv = document.getElementById('loading');
-                loadingDiv.style.display = 'flex';
-                loadingDiv.querySelector('p').innerText = 'Đang tìm kiếm dữ liệu...';
-
+            fetch: async function() {
+                document.getElementById('loading').style.display = 'flex';
                 try {
-                    // Tính toán phân trang (Range)
-                    const from = (page - 1) * this.pageSize;
+                    const from = (this.currentPage - 1) * this.pageSize;
                     const to = from + this.pageSize - 1;
-
-                    // Bắt đầu tạo câu lệnh truy vấn
-                    let query = _supabase
-                        .from('history_drug_change')
-                        .select('*', { count: 'exact' }); // Lấy thêm tổng số dòng để phân trang
-
-                    // NẾU CÓ TỪ KHÓA TÌM KIẾM
-                    if (keyword) {
-                        // Tìm trong tên thuốc HOẶC số đăng ký (ilike: không phân biệt hoa thường)
-                        const searchStr = `ten_thuoc.ilike.%${keyword}%,so_dang_ky.ilike.%${keyword}%`;
-                        query = query.or(searchStr);
+                    let query = _supabase.from('history_drug_change').select('*', { count: 'exact' });
+                    
+                    if (this.currentSearch) {
+                        query = query.or(`ten_thuoc.ilike.%${this.currentSearch}%,so_dang_ky.ilike.%${this.currentSearch}%`);
                     }
-
-                    // NẾU CÓ LỌC "CÓ THAY ĐỔI"
                     if (this.filterType === 'changed') {
-                        query = query.neq('noi_dung_thay_doi', ''); 
+                        query = query.not('noi_dung_thay_doi', 'eq', '');
                     }
 
-                    // Gửi lệnh: Sắp xếp theo created_at giảm dần (Mới nhất lên đầu) -> Lấy trong khoảng from-to
-                    const { data, error, count } = await query
-                        .order('created_at', { ascending: false })
-                        .range(from, to);
-
+                    const { data, error, count } = await query.order('id', { ascending: false }).range(from, to);
                     if (error) throw error;
 
-                    // Cập nhật dữ liệu
                     this.totalRecords = count || 0;
-                    document.getElementById('totalCount').innerText = `${this.totalRecords} kết quả`;
-                    
-                    // Nhóm dữ liệu lại để hiển thị (Parent - Child)
-                    this.data = this.groupDataBySDK(data);
-                    
-                    // Render ra bảng
-                    this.renderTable();
-                    this.renderPagination();
-
-                } catch (e) {
-                    console.error(e);
-                    alert('Lỗi kết nối: ' + e.message);
-                } finally {
-                    loadingDiv.style.display = 'none';
-                }
+                    this.data = this.groupData(data);
+                    this.render();
+                } catch (e) { alert('Lỗi: ' + e.message); }
+                finally { document.getElementById('loading').style.display = 'none'; }
             },
-
-            // --- HÀM GOM NHÓM DỮ LIỆU ---
-            groupDataBySDK: function(flatData) {
+            groupData: function(flatData) {
                 const groups = {};
-                flatData.forEach((item) => {
-                    // Key nhóm là SĐK, nếu không có thì dùng ID để tránh mất dữ liệu
-                    const key = item.so_dang_ky || 'NO_SDK_' + item.id; 
-                    
+                flatData.forEach(item => {
+                    const key = `${item.so_dang_ky}_${item.ngay_sua_doi}`;
                     if (!groups[key]) {
                         groups[key] = {
-                            id: item.id,
+                            display_id: item.id,
                             ten_thuoc: item.ten_thuoc,
                             so_dang_ky: item.so_dang_ky,
-                            chi_tiet: [],
-                            // Ưu tiên ngày sửa đổi text, nếu lỗi thì dùng created_at
-                            last_updated: item.ngay_sua_doi || item.created_at,
-                            last_scan: item.created_at
+                            last_mod: item.ngay_sua_doi,
+                            last_scan: item.last_updated,
+                            chi_tiet: []
                         };
                     }
-                    groups[key].chi_tiet.push({
-                        ngay_sua_doi: item.ngay_sua_doi,
-                        noi_dung_thay_doi: item.noi_dung_thay_doi,
-                        thong_tin_cu: item.thong_tin_cu || '', 
-                        thong_tin_moi: item.thong_tin_moi || '',
-                        ly_do: item.ly_do || ''
-                    });
+                    groups[key].chi_tiet.push(item);
                 });
                 return Object.values(groups);
             },
-
-            // --- RENDER BẢNG ---
-            renderTable: function() {
+            render: function() {
                 const tbody = document.getElementById('tbody');
-                if (this.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:#999; font-style:italic">Không tìm thấy dữ liệu nào phù hợp.</td></tr>';
-                    return;
-                }
+                document.getElementById('totalCount').innerText = `${this.totalRecords} kết quả`;
+                document.getElementById('pageInfo').innerText = `Trang ${this.currentPage} / ${Math.ceil(this.totalRecords/this.pageSize) || 1}`;
+                document.getElementById('prevPage').disabled = this.currentPage === 1;
+                document.getElementById('nextPage').disabled = this.currentPage >= Math.ceil(this.totalRecords/this.pageSize);
 
-                let html = '';
-                this.data.forEach(item => {
-                    const countChange = item.chi_tiet.length;
-                    const statusBadge = `<span class="badge badge-info">${countChange} bản ghi</span>`; 
-                    
-                    html += `
-                    <tr class="parent-row" onclick="app.toggleDetail(${item.id})">
-                        <td><div class="toggle-icon" id="icon-${item.id}"><i class="fas fa-chevron-right"></i></div></td>
-                        <td style="font-weight:500; color:var(--primary)">${item.ten_thuoc || '(Chưa cập nhật tên)'}</td>
+                tbody.innerHTML = this.data.map(item => `
+                    <tr class="parent-row" onclick="app.toggle('${item.display_id}')">
+                        <td><div class="toggle-icon" id="icon-${item.display_id}"><i class="fas fa-chevron-right"></i></div></td>
+                        <td style="color:var(--primary); font-weight:500">${item.ten_thuoc || '-'}</td>
                         <td><b>${item.so_dang_ky || '-'}</b></td>
-                        <td>${statusBadge}</td>
-                        <td class="date-mod">${this.formatDateVN(item.last_updated)}</td>
-                        <td class="date-scan">${this.formatDateTimeVN(item.last_scan)}</td>
+                        <td><span class="badge badge-info">${item.chi_tiet.length} nội dung</span></td>
+                        <td>${item.last_mod || '-'}</td>
+                        <td style="font-size:12px; color:#666">${item.last_scan ? new Date(item.last_scan).toLocaleDateString('vi-VN') : '-'}</td>
                     </tr>
-                    <tr class="child-row" id="child-${item.id}">
-                        <td colspan="7" style="padding:0"><div class="detail-container">${this.renderDetail(item.chi_tiet)}</div></td>
-                    </tr>`;
-                });
-                tbody.innerHTML = html;
-                document.querySelector('.table-wrapper').scrollTop = 0;
+                    <tr class="child-row" id="child-${item.display_id}">
+                        <td colspan="6"><div class="detail-container">
+                            <table class="detail-table">
+                                <thead><tr><th>Nội dung</th><th class="col-old">Thông tin cũ</th><th class="col-new">Thông tin mới</th><th>Lý do</th></tr></thead>
+                                <tbody>${item.chi_tiet.map(d => `
+                                    <tr>
+                                        <td><b>${d.noi_dung_thay_doi}</b><br><small>${d.chi_tiet || ''}</small></td>
+                                        <td class="col-old">${d.thong_tin_cu || '-'}</td>
+                                        <td class="col-new">${d.thong_tin_moi || '-'}</td>
+                                        <td>${d.ly_do || '-'}</td>
+                                    </tr>
+                                `).join('')}</tbody>
+                            </table>
+                        </div></td>
+                    </tr>
+                `).join('');
             },
-
-            // --- RENDER CHI TIẾT ---
-            renderDetail: function(details) {
-                if (!details || details.length === 0) return '<div style="color:#999; font-style:italic; padding:10px;">Không có chi tiết.</div>';
-                let html = `<table class="detail-table">
-                    <thead>
-                        <tr>
-                            <th style="width:100px">Ngày duyệt</th>
-                            <th style="width:25%">Nội dung</th>
-                            <th class="col-old">Thông tin cũ</th>
-                            <th class="col-new">Thông tin mới</th>
-                            <th style="width:15%">Lý do</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-                details.forEach(d => { 
-                    html += `<tr>
-                        <td>${this.formatDateVN(d.ngay_sua_doi) || '-'}</td>
-                        <td><b>${d.noi_dung_thay_doi || ''}</b></td>
-                        <td class="col-old">${d.thong_tin_cu || '-'}</td>
-                        <td class="col-new">${d.thong_tin_moi || '-'}</td>
-                        <td>${d.ly_do || '-'}</td>
-                    </tr>`; 
-                });
-                return html + '</tbody></table>';
+            toggle: function(id) {
+                const row = document.getElementById(`child-${id}`);
+                const icon = document.getElementById(`icon-${id}`);
+                const isShow = row.classList.toggle('show');
+                icon.parentElement.parentElement.classList.toggle('expanded', isShow);
             },
-
-            // --- PHÂN TRANG ---
-            renderPagination: function() {
-                const totalPages = Math.ceil(this.totalRecords / this.pageSize);
-                const pContainer = document.getElementById('pagination');
-                const info = document.getElementById('pageInfo');
-                
-                if (totalPages <= 0) { pContainer.innerHTML = ''; info.innerText = ''; return; }
-                
-                info.innerText = `Trang ${this.currentPage} / ${totalPages} (Tổng ${this.totalRecords} bản ghi)`;
-                
-                let html = '';
-                // Nút Previous
-                html += `<button class="page-btn" ${this.currentPage === 1 ? 'disabled' : ''} onclick="app.changePage(${this.currentPage-1})"><i class="fas fa-angle-left"></i></button>`;
-                
-                // Hiển thị số trang hiện tại
-                html += `<button class="page-btn active">${this.currentPage}</button>`;
-                
-                // Nút Next
-                html += `<button class="page-btn" ${this.currentPage >= totalPages ? 'disabled' : ''} onclick="app.changePage(${this.currentPage+1})"><i class="fas fa-angle-right"></i></button>`;
-                
-                pContainer.innerHTML = html;
+            changePage: function(step) { this.currentPage += step; this.fetch(); },
+            setFilter: function(type) {
+                this.filterType = type; this.currentPage = 1;
+                document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+                event.target.classList.add('active');
+                this.fetch();
             },
-
-            changePage: function(page) {
-                if (page < 1) return;
-                this.currentPage = page;
-                this.fetchDataFromSupabase(page, this.currentSearch);
-            },
-
-            setFilter: function(type) { 
-                this.filterType = type; 
-                this.currentPage = 1; 
-                document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active')); 
-                event.target.classList.add('active'); 
-                this.fetchDataFromSupabase(1, this.currentSearch); 
-            },
-
-            toggleDetail: function(id) {
-                const row = document.getElementById(`child-${id}`); 
-                const icon = document.getElementById(`icon-${id}`).parentElement.parentElement;
-                if (row.classList.contains('show')) { 
-                    row.classList.remove('show'); 
-                    icon.classList.remove('expanded'); 
-                } else { 
-                    row.classList.add('show'); 
-                    icon.classList.add('expanded'); 
-                }
-            },
-
-            debounce: function(func, wait) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); }; },
-            
-            formatDateVN: function(dateStr) {
-                if (!dateStr) return '';
-                if(dateStr.includes('/')) return dateStr; 
-                try {
-                    const d = new Date(dateStr);
-                    if (isNaN(d.getTime())) return dateStr;
-                    return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
-                } catch(e) { return dateStr; }
-            },
-            
-            formatDateTimeVN: function(iso) { 
-                if (!iso) return '';
-                try {
-                    const d = new Date(iso); 
-                    if (isNaN(d.getTime())) return '';
-                    return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`; 
-                } catch(e) { return ''; }
-            }
+            debounce: function(f, w) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), w); }; }
         };
-
-        window.onload = function() { app.init(); };
+        window.onload = () => app.init();
     </script>
 </body>
 </html>
