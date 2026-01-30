@@ -60,12 +60,12 @@
         // 1. CẤU HÌNH SUPABASE (Thay thông tin của ông vào đây)
         const SUPABASE_URL = 'https://fdvlpnfxbcpfsuapujfs.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkdmxwbmZ4YmNwZnN1YXB1amZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzc3MDcsImV4cCI6MjA4NDk1MzcwN30.rbfEdaPUdhsoSR5UFeRF5RjmK6D86PurciROW_zNPFY';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
         async function loadData() {
             try {
                 // 2. LẤY DỮ LIỆU TỪ BẢNG history_drug_change
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('history_drug_change')
                     .select('*')
                     .order('ngay_sua_doi', { ascending: false });
