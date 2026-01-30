@@ -3,112 +3,310 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedTenderTrack - Quản lý thay đổi thuốc</title>
+    <title>Tra cứu Lịch sử Thuốc (Supabase)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-    
+
     <style>
-        .dataTables_wrapper .dataTables_filter input {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 4px 12px;
-            margin-bottom: 10px;
-        }
-        table.dataTable { border-collapse: collapse !important; border-radius: 8px; overflow: hidden; }
-        .bg-primary { background-color: #0061f2; }
+        /* Tùy chỉnh thanh cuộn & hiệu ứng */
+        body { background-color: #f3f4f6; font-family: 'Segoe UI', sans-serif; }
+        .table-container { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-radius: 0.75rem; overflow: hidden; }
+        
+        /* Hiệu ứng dòng cha */
+        tr.parent-row { transition: all 0.2s; cursor: pointer; border-bottom: 1px solid #e5e7eb; }
+        tr.parent-row:hover { background-color: #f9fafb; }
+        tr.parent-row.expanded { background-color: #eff6ff; border-left: 4px solid #3b82f6; }
+        
+        /* Hiệu ứng mũi tên xoay */
+        .toggle-icon { transition: transform 0.3s ease; display: inline-block; color: #9ca3af; }
+        tr.parent-row.expanded .toggle-icon { transform: rotate(90deg); color: #3b82f6; }
+
+        /* Dòng chi tiết (Child row) */
+        tr.child-row { display: none; background-color: #f8fafc; }
+        tr.child-row.show { display: table-row; animation: fadeIn 0.3s ease-in; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Badge trạng thái */
+        .badge { padding: 0.15rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-new { background-color: #dcfce7; color: #166534; }
+        .badge-update { background-color: #dbeafe; color: #1e40af; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
-        <div class="flex items-center justify-between mb-8 bg-white p-6 rounded-xl shadow-sm">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900">MedTenderTrack</h1>
-                <p class="text-sm text-gray-500">Hệ thống theo dõi biến động số đăng ký thuốc</p>
+    <div id="loading" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <p class="mt-4 text-gray-500 font-medium">Đang tải dữ liệu từ Supabase...</p>
+    </div>
+
+    <div class="flex-1 flex flex-col max-w-7xl mx-auto w-full p-4 h-full">
+        
+        <div class="bg-white p-5 rounded-xl shadow-sm mb-4 flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-100 p-2 rounded-lg text-blue-600">
+                    <i class="fas fa-pills text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">Tra cứu Lịch sử Thuốc</h1>
+                    <p class="text-xs text-gray-500" id="status-text">Đang kết nối...</p>
+                </div>
             </div>
-            <div id="status" class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                Đang kết nối Supabase...
+
+            <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <div class="relative group w-full sm:w-64">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
+                    <input type="text" id="searchInput" placeholder="Tìm tên thuốc, SĐK..." 
+                        class="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm">
+                </div>
+                
+                <div class="flex bg-gray-100 p-1 rounded-lg">
+                    <button onclick="filterData('all')" class="filter-btn active px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white shadow-sm text-blue-700" id="btn-all">Tất cả</button>
+                    <button onclick="filterData('changed')" class="filter-btn px-4 py-1.5 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition-all" id="btn-changed">Có thay đổi</button>
+                </div>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <table id="drugTable" class="display responsive nowrap w-full text-sm">
-                <thead>
-                    <tr class="bg-gray-50 text-left">
-                        <th>Tên thuốc</th>
-                        <th>Số đăng ký</th>
-                        <th>Mã hồ sơ</th>
-                        <th>Ngày tiếp nhận</th>
-                        <th>Ngày sửa đổi</th>
-                        <th>Nội dung thay đổi</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    </tbody>
-            </table>
+        <div class="bg-white rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col border border-gray-100">
+            <div class="overflow-y-auto flex-1 custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50 sticky top-0 z-10 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 w-12"></th> <th class="px-6 py-3">Tên thuốc</th>
+                            <th class="px-6 py-3 w-48">Số Đăng Ký</th>
+                            <th class="px-6 py-3 w-40 text-center">Số lần đổi</th>
+                            <th class="px-6 py-3 w-48 text-right">Ngày cập nhật cuối</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-gray-100 text-sm">
+                        </tbody>
+                </table>
+                
+                <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-gray-400">
+                    <i class="fas fa-search text-4xl mb-3 opacity-20"></i>
+                    <p>Không tìm thấy dữ liệu phù hợp</p>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center flex-shrink-0">
+                <span id="record-count">0 bản ghi</span>
+                <span>Dữ liệu từ Supabase</span>
+            </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-
     <script>
-        // 1. CẤU HÌNH SUPABASE (Thay thông tin của ông vào đây)
-        const supabaseUrl = 'https://fdvlpnfxbcpfsuapujfs.supabase.co'; 
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkdmxwbmZ4YmNwZnN1YXB1amZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzc3MDcsImV4cCI6MjA4NDk1MzcwN30.rbfEdaPUdhsoSR5UFeRF5RjmK6D86PurciROW_zNPFY';
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        // --- 1. CẤU HÌNH SUPABASE ---
+        // Ông nhớ thay 2 dòng này nhé!
+        const SUPABASE_URL = 'https://fdvlpnfxbcpfsuapujfs.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkdmxwbmZ4YmNwZnN1YXB1amZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNzc3MDcsImV4cCI6MjA4NDk1MzcwN30.rbfEdaPUdhsoSR5UFeRF5RjmK6D86PurciROW_zNPFY';
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function loadData() {
+        let rawData = [];
+        let groupedData = [];
+        let currentFilter = 'all';
+
+        // --- 2. HÀM CHÍNH ---
+        async function initApp() {
             try {
-                // 2. LẤY DỮ LIỆU TỪ BẢNG history_drug_change
-                const { data, error } = await supabaseClient
+                // Lấy dữ liệu từ bảng
+                const { data, error } = await supabase
                     .from('history_drug_change')
                     .select('*')
                     .order('ngay_sua_doi', { ascending: false });
 
                 if (error) throw error;
 
-                // 3. HIỂN THỊ DỮ LIỆU LÊN BẢNG
-                const tableBody = document.getElementById('tableBody');
-                tableBody.innerHTML = data.map(item => `
-                    <tr class="hover:bg-blue-50 transition-colors">
-                        <td class="font-semibold text-blue-700">${item.ten_thuoc || ''}</td>
-                        <td><span class="bg-gray-100 px-2 py-1 rounded text-xs">${item.so_dang_ky || ''}</span></td>
-                        <td>${item.ma_ho_so || ''}</td>
-                        <td>${item.ngay_tiep_nhan || ''}</td>
-                        <td class="text-orange-600 font-medium">${item.ngay_sua_doi || ''}</td>
-                        <td class="max-w-xs truncate" title="${item.noi_dung_thay_doi || ''}">
-                            ${item.noi_dung_thay_doi || ''}
-                        </td>
-                    </tr>
-                `).join('');
-
-                // 4. KÍCH HOẠT DATATABLE
-                $('#drugTable').DataTable({
-                    responsive: true,
-                    language: {
-                        search: "Tìm thuốc:",
-                        lengthMenu: "Hiển thị _MENU_ dòng",
-                        info: "Đang hiện _START_ đến _END_ trong tổng số _TOTAL_ thuốc",
-                        paginate: { next: "Sau", previous: "Trước" }
-                    }
-                });
-
-                document.getElementById('status').innerText = 'Dữ liệu trực tuyến';
-                document.getElementById('status').className = 'px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700';
+                rawData = data;
+                processData(); // Gom nhóm dữ liệu
+                renderTable(groupedData);
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('status-text').innerText = 'Trực tuyến';
+                document.getElementById('status-text').className = 'text-xs text-green-600 font-medium';
 
             } catch (err) {
                 console.error(err);
-                document.getElementById('status').innerText = 'Lỗi kết nối';
-                document.getElementById('status').className = 'px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700';
+                document.getElementById('loading').innerHTML = `<div class="text-red-500 text-center"><i class="fas fa-exclamation-triangle text-3xl mb-2"></i><br>Lỗi kết nối: ${err.message}</div>`;
             }
         }
 
-        loadData();
+        // --- 3. GOM NHÓM DỮ LIỆU (Master-Detail Logic) ---
+        function processData() {
+            const groups = {};
+            
+            rawData.forEach(item => {
+                // Dùng Số Đăng Ký làm khóa chính để gom nhóm
+                const key = item.so_dang_ky || 'UNKNOWN';
+                
+                if (!groups[key]) {
+                    groups[key] = {
+                        so_dang_ky: key,
+                        ten_thuoc: item.ten_thuoc,
+                        changes: [],
+                        last_updated: item.ngay_sua_doi || item.ngay_tiep_nhan
+                    };
+                }
+                
+                // Thêm bản ghi vào danh sách thay đổi của thuốc đó
+                groups[key].changes.push(item);
+                
+                // Cập nhật ngày mới nhất nếu cần
+                if (item.ngay_sua_doi > groups[key].last_updated) {
+                    groups[key].last_updated = item.ngay_sua_doi;
+                }
+            });
+
+            // Chuyển object thành array và sắp xếp theo ngày mới nhất
+            groupedData = Object.values(groups).sort((a, b) => {
+                return new Date(b.last_updated) - new Date(a.last_updated);
+            });
+        }
+
+        // --- 4. RENDER GIAO DIỆN ---
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            const emptyState = document.getElementById('empty-state');
+            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+
+            tbody.innerHTML = '';
+            let count = 0;
+
+            data.forEach((drug, index) => {
+                // Logic lọc
+                const matchSearch = (drug.ten_thuoc?.toLowerCase().includes(searchVal) || drug.so_dang_ky?.toLowerCase().includes(searchVal));
+                const matchFilter = currentFilter === 'all' || (currentFilter === 'changed' && drug.changes.length > 0); // Logic tạm: coi như có bản ghi là có đổi
+
+                if (matchSearch && matchFilter) {
+                    count++;
+                    const rowId = `row-${index}`;
+                    const hasChanges = drug.changes.length > 0;
+                    
+                    // Dòng cha (Master)
+                    const parentRow = `
+                        <tr class="parent-row" onclick="toggleRow('${rowId}', this)">
+                            <td class="px-6 py-4 text-center">
+                                <i class="fas fa-chevron-right toggle-icon text-sm"></i>
+                            </td>
+                            <td class="px-6 py-4 font-medium text-gray-900">
+                                ${drug.ten_thuoc}
+                            </td>
+                            <td class="px-6 py-4 text-gray-600 font-mono text-xs">
+                                ${drug.so_dang_ky}
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="badge ${hasChanges ? 'badge-update' : 'bg-gray-100 text-gray-500'}">
+                                    ${drug.changes.length} thay đổi
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-right text-gray-500 font-medium text-xs">
+                                ${formatDate(drug.last_updated)}
+                            </td>
+                        </tr>
+                    `;
+
+                    // Dòng con (Detail) - Bảng con lồng bên trong
+                    let detailsHtml = drug.changes.map(c => `
+                        <tr class="border-b border-gray-100 last:border-0 hover:bg-white">
+                            <td class="py-3 px-4 w-32 text-gray-500 text-xs align-top font-mono">${formatDate(c.ngay_sua_doi)}</td>
+                            <td class="py-3 px-4 text-gray-700 align-top">
+                                <p class="font-medium text-sm text-blue-700 mb-1">${c.noi_dung_thay_doi || 'Thay đổi thông tin'}</p>
+                                <p class="text-xs text-gray-500">Mã hồ sơ: ${c.ma_ho_so || 'N/A'}</p>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    const childRow = `
+                        <tr id="${rowId}" class="child-row">
+                            <td colspan="5" class="p-0 border-b border-gray-200">
+                                <div class="bg-gray-50 p-4 pl-16 shadow-inner">
+                                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                        <table class="w-full text-sm text-left">
+                                            <thead class="bg-gray-100 text-xs text-gray-500 font-semibold uppercase">
+                                                <tr>
+                                                    <th class="px-4 py-2">Ngày sửa đổi</th>
+                                                    <th class="px-4 py-2">Nội dung thay đổi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-50">
+                                                ${detailsHtml}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+
+                    tbody.insertAdjacentHTML('beforeend', parentRow + childRow);
+                }
+            });
+
+            // Cập nhật trạng thái
+            document.getElementById('record-count').innerText = `${count} bản ghi hiển thị`;
+            if (count === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+        }
+
+        // --- 5. TIỆN ÍCH ---
+        function toggleRow(id, element) {
+            const childRow = document.getElementById(id);
+            const isExpanded = element.classList.contains('expanded');
+            
+            // Reset các dòng khác (nếu muốn chỉ mở 1 dòng 1 lúc thì bỏ comment dòng dưới)
+            // document.querySelectorAll('.child-row.show').forEach(r => { r.classList.remove('show'); r.previousElementSibling.classList.remove('expanded'); });
+
+            if (!isExpanded) {
+                element.classList.add('expanded');
+                childRow.classList.add('show');
+            } else {
+                element.classList.remove('expanded');
+                childRow.classList.remove('show');
+            }
+        }
+
+        function filterData(type) {
+            currentFilter = type;
+            // Update UI buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                btn.classList.add('text-gray-500');
+            });
+            const activeBtn = document.getElementById(`btn-${type}`);
+            activeBtn.classList.add('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+            activeBtn.classList.remove('text-gray-500');
+            
+            renderTable(groupedData);
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            // Xử lý định dạng ngày tháng đơn giản
+            try {
+                const date = new Date(dateString);
+                return new Intl.DateTimeFormat('vi-VN').format(date);
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        // Xử lý search debounce
+        let timeout = null;
+        document.getElementById('searchInput').addEventListener('keyup', function() {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                renderTable(groupedData);
+            }, 300);
+        });
+
+        // Khởi chạy
+        initApp();
     </script>
 </body>
 </html>
