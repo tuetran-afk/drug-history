@@ -101,28 +101,70 @@
             data: [], filteredData: [], pageSize: 50, currentPage: 1, filterType: 'all', searchTerm: '',
             
             init: async function() {
-                try {
-                    // Dùng biến _supabase vừa đổi tên để gọi
-                    let { data: rawData, error } = await _supabase
-                        .from('history_drug_change')
-                        .select('*')
-                        .order('ngay_sua_doi', { ascending: false });
+    try {
+        let allData = [];
+        let pageIndex = 0;
+        let pageSize = 1000; // Tải mỗi lần 1000 dòng để an toàn
+        let hasMore = true;
 
-                    if (error) throw error;
+        const loadingDiv = document.getElementById('loading');
 
-                    this.data = this.groupDataBySDK(rawData);
-                    document.getElementById('loading').style.display = 'none';
-                    this.applyFilter();
+        // --- VÒNG LẶP TẢI DỮ LIỆU ---
+        while (hasMore) {
+            // Tính vị trí bắt đầu và kết thúc (0-999, 1000-1999...)
+            const from = pageIndex * pageSize;
+            const to = from + pageSize - 1;
 
-                    document.getElementById('search').addEventListener('input', this.debounce((e) => {
-                        this.searchTerm = e.target.value.toLowerCase(); this.currentPage = 1; this.applyFilter();
-                    }, 300));
+            // Cập nhật giao diện để người dùng biết đang chạy
+            loadingDiv.innerHTML = `<div class="spinner"></div><p style="margin-top:15px; color:#666">Đang tải dữ liệu...<br><b>Đã tải: ${allData.length} bản ghi</b></p>`;
 
-                } catch (e) {
-                    alert('Lỗi: ' + e.message);
-                    document.getElementById('loading').innerHTML = `<p style="color:red">Lỗi kết nối: ${e.message}</p>`;
+            // Gọi API
+            let { data: rawData, error } = await _supabase
+                .from('history_drug_change')
+                .select('*')
+                .range(from, to)
+                .order('ngay_sua_doi', { ascending: false });
+
+            if (error) throw error;
+
+            if (rawData.length > 0) {
+                // Gộp dữ liệu mới vào mảng tổng
+                allData = allData.concat(rawData);
+                
+                // Nếu số lượng lấy về ít hơn pageSize (ví dụ lấy 1000 mà chỉ về 500) -> Nghĩa là đã hết dữ liệu
+                if (rawData.length < pageSize) {
+                    hasMore = false;
+                } else {
+                    pageIndex++; // Tăng trang để lấy đợt tiếp theo
                 }
-            },
+            } else {
+                hasMore = false; // Không còn dữ liệu
+            }
+        }
+        // -----------------------------
+
+        // Sau khi tải xong hết, mới bắt đầu xử lý
+        loadingDiv.innerHTML = `<div class="spinner"></div><p style="margin-top:15px; color:#666">Đang xử lý dữ liệu...</p>`;
+        
+        // Nhóm dữ liệu
+        this.data = this.groupDataBySDK(allData);
+        
+        // Ẩn loading và hiển thị
+        loadingDiv.style.display = 'none';
+        this.applyFilter();
+
+        // Sự kiện tìm kiếm
+        document.getElementById('search').addEventListener('input', this.debounce((e) => {
+            this.searchTerm = e.target.value.toLowerCase(); 
+            this.currentPage = 1; 
+            this.applyFilter();
+        }, 300));
+
+    } catch (e) {
+        alert('Lỗi: ' + e.message);
+        document.getElementById('loading').innerHTML = `<p style="color:red">Lỗi kết nối: ${e.message}</p>`;
+    }
+},
 
             groupDataBySDK: function(flatData) {
                 const groups = {};
