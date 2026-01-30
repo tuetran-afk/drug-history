@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedTenderTrack - Quản lý thay đổi thuốc</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+    
+    <style>
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 4px 12px;
+            margin-bottom: 10px;
+        }
+        table.dataTable { border-collapse: collapse !important; border-radius: 8px; overflow: hidden; }
+        .bg-primary { background-color: #0061f2; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="flex items-center justify-between mb-8 bg-white p-6 rounded-xl shadow-sm">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">MedTenderTrack</h1>
+                <p class="text-sm text-gray-500">Hệ thống theo dõi biến động số đăng ký thuốc</p>
+            </div>
+            <div id="status" class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                Đang kết nối Supabase...
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <table id="drugTable" class="display responsive nowrap w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-left">
+                        <th>Tên thuốc</th>
+                        <th>Số đăng ký</th>
+                        <th>Mã hồ sơ</th>
+                        <th>Ngày tiếp nhận</th>
+                        <th>Ngày sửa đổi</th>
+                        <th>Nội dung thay đổi</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+
+    <script>
+        // 1. CẤU HÌNH SUPABASE (Thay thông tin của ông vào đây)
+        const SUPABASE_URL = 'https://fdvlpnfxbcpfsuapujfs.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_UfrsZBMeeEywIVKYBls_WQ_SaHoIMw-';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function loadData() {
+            try {
+                // 2. LẤY DỮ LIỆU TỪ BẢNG history_drug_change
+                const { data, error } = await supabase
+                    .from('history_drug_change')
+                    .select('*')
+                    .order('ngay_sua_doi', { ascending: false });
+
+                if (error) throw error;
+
+                // 3. HIỂN THỊ DỮ LIỆU LÊN BẢNG
+                const tableBody = document.getElementById('tableBody');
+                tableBody.innerHTML = data.map(item => `
+                    <tr class="hover:bg-blue-50 transition-colors">
+                        <td class="font-semibold text-blue-700">${item.ten_thuoc || ''}</td>
+                        <td><span class="bg-gray-100 px-2 py-1 rounded text-xs">${item.so_dang_ky || ''}</span></td>
+                        <td>${item.ma_ho_so || ''}</td>
+                        <td>${item.ngay_tiep_nhan || ''}</td>
+                        <td class="text-orange-600 font-medium">${item.ngay_sua_doi || ''}</td>
+                        <td class="max-w-xs truncate" title="${item.noi_dung_thay_doi || ''}">
+                            ${item.noi_dung_thay_doi || ''}
+                        </td>
+                    </tr>
+                `).join('');
+
+                // 4. KÍCH HOẠT DATATABLE
+                $('#drugTable').DataTable({
+                    responsive: true,
+                    language: {
+                        search: "Tìm thuốc:",
+                        lengthMenu: "Hiển thị _MENU_ dòng",
+                        info: "Đang hiện _START_ đến _END_ trong tổng số _TOTAL_ thuốc",
+                        paginate: { next: "Sau", previous: "Trước" }
+                    }
+                });
+
+                document.getElementById('status').innerText = 'Dữ liệu trực tuyến';
+                document.getElementById('status').className = 'px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700';
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status').innerText = 'Lỗi kết nối';
+                document.getElementById('status').className = 'px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700';
+            }
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
