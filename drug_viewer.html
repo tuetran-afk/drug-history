@@ -86,7 +86,7 @@
         <div class="footer"><div style="font-size: 13px; color: #666;" id="pageInfo"></div><div class="pagination" id="pagination"></div></div>
     </div>
     <script>
-        const COMPRESSED_DATA = 'H4sIAD5rnWkC/6uuBQBDv6ajAgAAAA==';
+        const COMPRESSED_DATA = 'H4sIAH9tnWkC/6uuBQBDv6ajAgAAAA==';
         const app = {
             data: [], filteredData: [], pageSize: 50, currentPage: 1, filterType: 'all', searchTerm: '',
             init: function() {
@@ -117,11 +117,7 @@
             applyFilter: function() {
                 const oneDayAgo = new Date(Date.now() - 86400000);
                 this.filteredData = this.data.filter(item => {
-                    // Lọc những thuốc có ít nhất 1 thay đổi chứa lý do hợp lệ
-                    if (this.filterType === 'changed') {
-                        const validCount = (item.chi_tiet || []).filter(d => d.ly_do && d.ly_do.toString().trim() !== '' && d.ly_do !== '-').length;
-                        if (validCount === 0) return false;
-                    }
+                    if (this.filterType === 'changed' && (!item.tong_thay_doi || item.tong_thay_doi === 0)) return false;
                     if (this.filterType === 'recent' && (!item.last_updated || new Date(item.last_updated) <= oneDayAgo)) return false;
                     
                     if (this.searchTerm) {
@@ -143,15 +139,8 @@
                 let html = '';
                 pageData.forEach(item => {
                     const isNew = item.last_updated && new Date(item.last_updated) > oneDayAgo;
-                    
-                    // Đếm số lượng thay đổi có lý do (not blank & khác '-')
-                    let validChangesCount = 0;
-                    if (item.chi_tiet && item.chi_tiet.length > 0) {
-                        validChangesCount = item.chi_tiet.filter(d => d.ly_do && d.ly_do.toString().trim() !== '' && d.ly_do !== '-').length;
-                    }
-                    
-                    const hasChange = validChangesCount > 0;
-                    const statusBadge = hasChange ? `<span class="badge badge-new">${validChangesCount} thay đổi</span>` : `<span class="badge badge-gray">Không đổi</span>`;
+                    const hasChange = item.tong_thay_doi > 0;
+                    const statusBadge = hasChange ? `<span class="badge badge-new">${item.tong_thay_doi} thay đổi</span>` : `<span class="badge badge-gray">Không đổi</span>`;
                     const newBadge = isNew ? `<span class="badge badge-info" style="margin-left:5px">MỚI</span>` : '';
                     
                     const displayModDate = this.formatDateVN(item.sort_date) || '-';
@@ -174,27 +163,17 @@
                 tbody.innerHTML = html;
                 document.querySelector('.table-wrapper').scrollTop = 0;
             },
-
             renderDetail: function(details) {
                 if (!details || details.length === 0) return '<div style="color:#999; font-style:italic">Không có chi tiết.</div>';
-                
-                // Lọc ra các dòng có cột "ly_do" không trống hoặc khác dấu '-'
-                const validDetails = details.filter(d => d.ly_do && d.ly_do.toString().trim() !== '' && d.ly_do !== '-');
-                
-                // Nếu sau khi lọc không còn dòng nào, hiển thị thông báo
-                if (validDetails.length === 0) return '<div style="color:#999; font-style:italic">Không có thay đổi nào có kèm Lý do.</div>';
-
                 let html = `<table class="detail-table"><thead><tr><th style="width:90px">Ngày duyệt</th><th style="width:20%">Nội dung</th><th>Chi tiết</th><th class="col-old">Thông tin cũ</th><th class="col-new">Thông tin mới</th><th style="width:15%">Lý do</th></tr></thead><tbody>`;
-                
-                // Chỉ render những dòng đã qua bộ lọc
-                validDetails.forEach(d => { 
+                details.forEach(d => { 
                     html += `<tr>
                         <td>${d.ngay_sua_doi || '-'}</td>
                         <td><b>${d.noi_dung_thay_doi}</b></td>
                         <td>${d.chi_tiet || '-'}</td>
                         <td class="col-old">${d.thong_tin_cu || '-'}</td>
                         <td class="col-new">${d.thong_tin_moi || '-'}</td>
-                        <td>${d.ly_do}</td>
+                        <td>${d.ly_do || '-'}</td>
                     </tr>`; 
                 });
                 return html + '</tbody></table>';
