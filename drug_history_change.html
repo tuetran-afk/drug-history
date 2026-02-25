@@ -199,64 +199,69 @@
             },
 
             render: function(listData) {
-                const tbody = document.getElementById('tbody');
-                if (!listData || listData.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:#999; font-style:italic">Không tìm thấy dữ liệu</td></tr>';
-                    return;
-                }
+    const tbody = document.getElementById('tbody');
+    if (!listData || listData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color:#999; font-style:italic">Không tìm thấy dữ liệu</td></tr>';
+        return;
+    }
 
-                const html = listData.map((item, index) => {
-                    // Lấy mảng lịch sử từ JSON
-                    let historyList = item.history || [];
-                    
-                    // --- SẮP XẾP LỊCH SỬ CHI TIẾT ---
-                    // Mới nhất lên đầu (Dựa vào ngay_sua_doi)
-                    historyList.sort((a, b) => this.parseDate(b.ngay_sua_doi) - this.parseDate(a.ngay_sua_doi));
+    const html = listData.map((item, index) => {
+        // --- LỌC VÀ SẮP XẾP LỊCH SỬ ---
+        // 1. Chỉ lấy các mục có "ly_do" (không null, không rỗng, không chỉ có khoảng trắng)
+        let historyList = (item.history || []).filter(h => h.ly_do && h.ly_do.trim() !== '');
+        
+        // Nếu sau khi lọc không có lịch sử nào có lý do, có thể bỏ qua hoặc hiển thị 0 (tùy bạn)
+        // Ở đây ta vẫn hiển thị dòng thuốc nhưng bảng chi tiết sẽ trống hoặc chỉ hiện các dòng hợp lệ.
+        
+        // 2. Sắp xếp: Mới nhất lên đầu
+        historyList.sort((a, b) => this.parseDate(b.ngay_sua_doi) - this.parseDate(a.ngay_sua_doi));
 
-                    const rowId = `row-${index}`;
-                    return `
-                    <tr class="parent-row" onclick="app.toggleDetail('${rowId}')">
-                        <td><div class="toggle-icon" id="icon-${rowId}"><i class="fas fa-chevron-right"></i></div></td>
-                        <td><span class="badge badge-id">${item.drug_id || '-'}</span></td>
-                        <td style="font-weight: 500; color: var(--primary);">${item.ten_thuoc || '-'}</td>
-                        <td><b>${item.so_dang_ky || '-'}</b></td>
-                        <td><span class="badge badge-info">${historyList.length} lần sửa</span></td>
-                        <td style="color:#666; font-size:12px;">${this.formatDate(item.sort_date)}</td>
-                    </tr>
-                    <tr class="child-row" id="child-${rowId}">
-                        <td colspan="6" style="padding: 0;">
-                            <div class="detail-wrapper">
-                                <table class="history-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width:110px">Ngày sửa</th>
-                                            <th>Nội dung thay đổi</th>
-                                            <th class="col-old">Thông tin cũ</th>
-                                            <th class="col-new">Thông tin mới</th>
-                                            <th style="width:15%">Lý do</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${historyList.map(h => `
-                                            <tr>
-                                                <td style="font-weight:600">${h.ngay_sua_doi || '-'}</td>
-                                                <td>
-                                                    <b>${h.noi_dung_thay_doi}</b>
-                                                    ${h.chi_tiet ? `<br><small style="color:#666">${h.chi_tiet}</small>` : ''}
-                                                </td>
-                                                <td class="col-old">${h.thong_tin_cu || '-'}</td>
-                                                <td class="col-new">${h.thong_tin_moi || '-'}</td>
-                                                <td>${h.ly_do || ''}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </td>
-                    </tr>`;
-                }).join('');
-                tbody.innerHTML = html;
-            },
+        const rowId = `row-${index}`;
+        return `
+        <tr class="parent-row" onclick="app.toggleDetail('${rowId}')">
+            <td><div class="toggle-icon" id="icon-${rowId}"><i class="fas fa-chevron-right"></i></div></td>
+            <td><span class="badge badge-id">${item.drug_id || '-'}</span></td>
+            <td style="font-weight: 500; color: var(--primary);">${item.ten_thuoc || '-'}</td>
+            <td><b>${item.so_dang_ky || '-'}</b></td>
+            <td><span class="badge badge-info">${historyList.length} lần sửa (có lý do)</span></td>
+            <td style="color:#666; font-size:12px;">${this.formatDate(item.sort_date)}</td>
+        </tr>
+        <tr class="child-row" id="child-${rowId}">
+            <td colspan="6" style="padding: 0;">
+                <div class="detail-wrapper">
+                    ${historyList.length > 0 ? `
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th style="width:110px">Ngày sửa</th>
+                                <th>Nội dung thay đổi</th>
+                                <th class="col-old">Thông tin cũ</th>
+                                <th class="col-new">Thông tin mới</th>
+                                <th style="width:20%">Lý do</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${historyList.map(h => `
+                                <tr>
+                                    <td style="font-weight:600">${h.ngay_sua_doi || '-'}</td>
+                                    <td>
+                                        <b>${h.noi_dung_thay_doi}</b>
+                                        ${h.chi_tiet ? `<br><small style="color:#666">${h.chi_tiet}</small>` : ''}
+                                    </td>
+                                    <td class="col-old">${h.thong_tin_cu || '-'}</td>
+                                    <td class="col-new">${h.thong_tin_moi || '-'}</td>
+                                    <td style="font-weight: 500; color: #d93025;">${h.ly_do}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ` : '<div style="padding:15px; color:#999; text-align:center;">Không có lịch sử thay đổi nào có lý do đính kèm.</div>'}
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+    tbody.innerHTML = html;
+},
 
             toggleDetail: function(id) {
                 const row = document.getElementById(`child-${id}`);
